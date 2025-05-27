@@ -8,9 +8,9 @@ class settings(BaseSettings):
     App_name: str 
     App_version: str
 
-    FILE_ALLOWED_EXTENSIONS: list
-    FILE_MAX_SIZE: int
-    FILE_DEFAULT_CHUNK_SIZE: int
+    FILE_ALLOWED_EXTENSIONS: set[str] = {"application/pdf", "text/plain"}
+    FILE_MAX_SIZE: int = 10
+    FILE_DEFAULT_CHUNK_SIZE: int =1000
     
 
 

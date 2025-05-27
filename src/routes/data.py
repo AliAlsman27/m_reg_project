@@ -1,7 +1,9 @@
-from fastapi import FastAPI, APIRouter, Depends, UploadFile, status
+from fastapi import FastAPI, APIRouter, Depends, UploadFile, status, Request
 from fastapi.responses import JSONResponse
 from helpers.config import get_settings, settings
-from controllers import DataController, ProjectController
+from controllers import DataController, ProjectController, ProcessController
+from models.ProjectModel import ProjectModel
+from .schemes.data import processRequest
 import os
 import aiofiles
 import logging
@@ -14,10 +16,13 @@ data_router = APIRouter(
 )
 
 @data_router.post("/upload/{project_id}")
-async def upload_data(project_id: str, file: UploadFile, 
+async def upload_data(request: Request, project_id: str, file: UploadFile, 
                      app_settings: settings = Depends(get_settings)):
+
+    # project_model = ProjectModel(db_client=request.app.mongodb)
+    # project = await project_model.get_project_or_create_one(project_id=project_id)
     
-    "VALIDATE FILE PROPERTIES"
+    #VALIDATE FILE PROPERTIES
     data_controller = DataController()
     is_valid = data_controller.validate_file(file=file)
     if not is_valid[0]:
@@ -43,5 +48,37 @@ async def upload_data(project_id: str, file: UploadFile,
         )
     return JSONResponse(
         content = {"message": "File uploaded successfully",
-        "file_id": file_name}
+        "file_id": file_name
+        }
+
     )
+@data_router.post("/process/{project_id}")
+async def process_endpoint( project_id: str, process_reqest: processRequest):
+
+    file_id = process_reqest.file_id
+    chunk_size = process_reqest.chunk_size
+    overlap_size = process_reqest.chunk_overlap
+
+    process_controller = ProcessController(project_id=project_id)
+
+    file_content = process_controller.get_file_content(file_name=file_id)
+    if not file_content:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"message": "File not found or empty."}
+        )
+    
+    chunks = process_controller.process_file_content(
+        file_content=file_content,
+        file_name=file_id,
+        chunk_size=chunk_size,
+        overlap_size = overlap_size
+    )
+    if chunks is None or len(chunks) == 0:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"message": "No chunks created from the file."}
+        )
+    
+    return chunks
+
